@@ -1,0 +1,31 @@
+import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;
+import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEType;
+import com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.core.Stream;
+import com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.core.Stream.OffsetExpr;
+import com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.core.CounterChain;
+
+class TestKernel extends Kernel {
+
+    protected TestKernel(KernelParameters parameters) {
+        super(parameters);
+
+        final OffsetExpr loopLength = stream.makeOffsetAutoLoop("loopLength");
+        final DFEVar loopLengthVal = loopLength.getDFEVar(this, dfeUInt(8));
+
+        final CounterChain chain = control.count.makeCounterChain();
+        final DFEVar loopCounter = chain.addCounter(loopLengthVal, 1);
+
+        final Stream.OffsetExpr offset = stream.makeOffsetParam("aStreamOffset", 0, 10);
+        final DFEType scalarType = dfeInt(32);
+        final DFEVar a = io.input("input", scalarType, loopCounter === loopLengthVal - 1);
+        final DFEVar carriedSum = scalarType.newInstance(this);
+        final DFEVar sum = carriedSum;
+        final DFEVar newSum = stream.offset(a, offset) + sum;
+        final DFEVar newSumOffset = stream.offset(newSum, -loopLength);
+        carriedSum <== newSumOffset;
+
+        io.output("output", newSum, scalarType, loopCounter === loopLengthVal - 1);
+    }
+}

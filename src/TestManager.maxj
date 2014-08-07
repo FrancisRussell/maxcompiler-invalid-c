@@ -1,0 +1,48 @@
+/***
+  The manager for this design just streams data from CPU to DFE and back via PCI-E.
+*/
+import com.maxeler.maxcompiler.v2.managers.engine_interfaces.CPUTypes;
+import com.maxeler.maxcompiler.v2.managers.engine_interfaces.EngineInterface;
+import com.maxeler.maxcompiler.v2.managers.engine_interfaces.InterfaceParam;
+import com.maxeler.maxcompiler.v2.managers.custom.CustomManager;
+import com.maxeler.maxcompiler.v2.managers.custom.blocks.KernelBlock;
+import com.maxeler.maxcompiler.v2.build.EngineParameters;
+
+public class TestManager extends CustomManager{
+
+    private static final String s_kernelName  = "TestKernel";
+
+    TestManager(final EngineParameters ep)
+    {
+        super(ep);
+
+        final KernelBlock k = addKernel(new TestKernel(makeKernelParameters(s_kernelName)));
+        k.getInput("input") <== addStreamFromCPU("input");
+        addStreamToCPU("output") <== k.getOutput("output");
+    }
+
+    private static EngineInterface interfaceDefault() {
+        final EngineInterface engineInterface = new EngineInterface();
+        final CPUTypes type = CPUTypes.INT32;
+        final int size = type.sizeInBytes();
+
+        final InterfaceParam loopLength = engineInterface.getAutoLoopOffset(s_kernelName, "loopLength");
+        engineInterface.ignoreAutoLoopOffset(s_kernelName, "loopLength");
+
+        final InterfaceParam N = engineInterface.addParam("N", CPUTypes.INT);
+        engineInterface.setTicks(s_kernelName, N * loopLength);
+        engineInterface.setOffset(s_kernelName, "aStreamOffset", 0);
+
+        final InterfaceParam sizeBytes = N * size;
+        engineInterface.setStream("input", type, sizeBytes);
+        engineInterface.setStream("output", type, sizeBytes);
+        return engineInterface;
+    }
+
+
+    public static void main(final String[] args) {
+        final TestManager manager = new TestManager(new EngineParameters(args));
+        manager.createSLiCinterface(interfaceDefault());
+        manager.build();
+    }
+}
